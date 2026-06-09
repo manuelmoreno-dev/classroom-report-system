@@ -1,4 +1,4 @@
-git add README.md
+
 # 📱 Classroom Report System
 
 > Aplicación móvil Full-Stack para reportar averías en aulas de la **Universidad Politécnica de Aguascalientes**.
