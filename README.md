@@ -163,15 +163,20 @@ Esta opción levanta automáticamente la base de datos MySQL, la API de Node.js 
 
 ## 🔐 Variables de entorno
 
-Crea un archivo `.env` dentro de `BACKEND/` basándote en `.env.example`:
+### Si utilizas Docker (Recomendado)
+**No es necesario crear ningún archivo `.env`**. Las variables de entorno necesarias están preconfiguradas directamente en el archivo `docker-compose.yml` e inyectadas automáticamente a los contenedores al iniciar.
+
+### Si utilizas la Ejecución Local Tradicional
+Es obligatorio crear el archivo `.env` para conectar el servidor con tu MySQL local. Crea un archivo llamado `.env` dentro de la carpeta `BACKEND/` basándote en `BACKEND/.env.example`:
 
 ```env
 DB_HOST=localhost
 DB_USER=root
-DB_PASSWORD=
-DB_NAME=classroom_reports
+DB_PASSWORD=tu_contraseña_local
+DB_NAME=upa_reportes
 PORT=3000
 ```
+*(Asegúrate de cambiar `DB_PASSWORD` por la contraseña de tu MySQL local).*
 
 ---
 
