@@ -180,6 +180,72 @@ PORT=3000
 
 ---
 
+## 🚀 Despliegue en Producción
+
+Para poner este sistema en producción en un servidor o computadora central de la universidad (para que funcione de forma permanente y autónoma), sigue las siguientes directrices:
+
+### 1. Servidor Backend y Base de Datos (Seguridad y Persistencia)
+
+#### Opción A: Mediante Docker (Recomendado)
+El archivo `docker-compose.yml` ya está preconfigurado con políticas de reinicio automático (`restart: always`) y persistencia de datos mediante volúmenes. Para producción:
+1. **Seguridad Crítica**: Edita el archivo `docker-compose.yml` y cambia la contraseña por defecto de la base de datos (`MYSQL_ROOT_PASSWORD`) y del backend (`DB_PASSWORD`) a una contraseña segura.
+2. **IP Estática / Dominio**: Configura las variables `REACT_NATIVE_PACKAGER_HOSTNAME` y `EXPO_PUBLIC_API_URL` en `docker-compose.yml` con la IP fija del servidor en la red de la UPA (o un dominio dns local).
+3. **Ejecución en segundo plano permanente**:
+   ```bash
+   docker compose up --build -d
+   ```
+   *(El flag `-d` inicia los servicios en segundo plano. Si el servidor se apaga o reinicia, Docker levantará los contenedores automáticamente).*
+
+#### Opción B: Ejecución Local con PM2 (Sin Docker)
+Si ejecutas de forma tradicional, utiliza un administrador de procesos como **PM2** para que el backend nunca se caiga y se inicie con el sistema:
+1. Instala PM2 de forma global:
+   ```bash
+   npm install -g pm2
+   ```
+2. Inicia el backend con PM2:
+   ```bash
+   cd BACKEND
+   pm2 start server.js --name "upa-backend"
+   ```
+3. Configura PM2 para auto-arrancar al reiniciar el servidor:
+   ```bash
+   pm2 startup
+   pm2 save
+   ```
+
+---
+
+### 2. Frontend: Compilación y Distribución de la Aplicación
+
+En producción no se debe usar `npx expo start` ni la app Expo Go. Debes generar los archivos finales para distribución:
+
+#### A. Para Dispositivos Android (Archivo APK)
+Genera una aplicación instalable de forma directa en los celulares de los usuarios:
+1. Instala la herramienta de compilación de Expo:
+   ```bash
+   npm install -g eas-cli
+   ```
+2. Inicia sesión en tu cuenta de Expo:
+   ```bash
+   eas login
+   ```
+3. Configura y compila la aplicación para generar el archivo `.apk`:
+   ```bash
+   eas build --platform android --profile preview
+   ```
+   *(Esto te entregará un enlace de descarga con el archivo APK listo para instalar en cualquier celular Android sin depender de Expo Go).*
+
+#### B. Para el Panel de Mantenimiento Web (Admin)
+Si los administradores van a ingresar desde su computadora, compila el sitio web estático:
+1. Exporta el sitio web:
+   ```bash
+   cd FRONTEND
+   npx expo export --platform web
+   ```
+2. Copia la carpeta de salida generada (`dist`) a un servidor web de producción como **Nginx** o **Apache** para servirlo de forma pública en la red institucional.
+
+---
+
 ## 👥 Autores
 
 | Nombre | GitHub |
