@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-// Reemplaza esto con tu Dirección IPv4 real (ej. 192.168.1.75)
-// Si usas el emulador de Android nativo, a veces funciona con '10.0.2.2'
-const IP_COMPUTADORA = '192.168.1.84'; 
+const IP_COMPUTADORA = '192.168.1.72'; 
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${IP_COMPUTADORA}:3000/api`;
 
 const api = axios.create({
-  baseURL: `http://${IP_COMPUTADORA}:3000/api`,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

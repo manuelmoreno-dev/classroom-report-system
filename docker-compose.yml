@@ -1,0 +1,65 @@
+services:
+  # 1. Base de Datos MySQL
+  db:
+    image: mysql:8.0
+    container_name: upa_reportes_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: upa_reportes
+    ports:
+      - "3306:3306" # Permite conectar al puerto 3306 desde afuera de Docker (ej. DBeaver o ejecución local)
+    volumes:
+      - db_data:/var/lib/mysql # Persistencia de los datos de MySQL
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql # Inicialización automática de tablas
+    networks:
+      - app-network
+
+  # 2. Backend (API REST Express)
+  backend:
+    build:
+      context: ./BACKEND
+      dockerfile: Dockerfile
+    container_name: upa_reportes_backend
+    restart: always
+    ports:
+      - "3000:3000" # Puerto donde corre la API
+    environment:
+      - DB_HOST=db # Apunta al servicio 'db' en la red interna de Docker
+      - DB_USER=root
+      - DB_PASSWORD=admin123
+      - DB_NAME=upa_reportes
+      - PORT=3000
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  # 3. Frontend (React Native + Expo Web/Bundler)
+  frontend:
+    build:
+      context: ./FRONTEND
+      dockerfile: Dockerfile
+    container_name: upa_reportes_frontend
+    restart: always
+    ports:
+      - "8081:8081" # Puerto de Metro Bundler (Expo CLI) y servidor web
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.72
+      # EXPO_PUBLIC_API_URL: Apunta al backend en la IP física accesible por el celular.
+      - EXPO_PUBLIC_API_URL=http://192.168.1.72:3000/api
+    stdin_open: true # Mantiene abierta la entrada estándar para que Expo pueda recibir comandos
+    tty: true        # Habilita una terminal interactiva virtual para ver el código QR
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+# Volumen para conservar la base de datos persistente
+volumes:
+  db_data:
+
+# Red privada para la comunicación entre servicios
+networks:
+  app-network:
+    driver: bridge
