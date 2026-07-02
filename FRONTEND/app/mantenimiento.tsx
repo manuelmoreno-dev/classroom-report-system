@@ -161,6 +161,19 @@ export default function HistorialScreen() {
   const resueltos = reportes.filter(r => (r.estado || '').toLowerCase() === 'resuelto').length;
   const activos = pendientes + enProceso;
 
+  // Filtrar resueltos este mes para la gráfica
+  const ahora = new Date();
+  const resueltosEsteMes = reportes.filter(r => {
+    const fecha = new Date(r.fecha_reporte);
+    const esResuelto = (r.estado || '').toLowerCase() === 'resuelto';
+    const mismoMes = fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
+    return esResuelto && mismoMes;
+  }).length;
+
+  // Totales para la gráfica dinámica
+  const totalGrafica = resueltosEsteMes + enProceso + pendientes;
+  const maxValor = Math.max(resueltosEsteMes, enProceso, pendientes);
+
   // Filtro
   const reportesFiltrados = reportes.filter(r => {
     const estadoNormalizado = (r.estado || 'pendiente').toLowerCase();
@@ -248,6 +261,86 @@ export default function HistorialScreen() {
           <Text style={[styles.statNumero, { color: '#059669' }]}>{resueltos}</Text>
           <Text style={styles.statLabel}>Resueltos</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* SECCIÓN NUEVA: GRÁFICA DE RENDIMIENTO */}
+      <View style={styles.graficaTarjeta}>
+        <Text style={styles.graficaTitulo}>📊 Estado Mensual y Rendimiento</Text>
+        
+        {/* Gráfica de Barras Verticales */}
+        <View style={styles.graficaContenedor}>
+          
+          {/* Barra 1: Resueltos este mes */}
+          <View style={styles.graficaColumna}>
+            <Text style={[styles.columnaValor, { color: '#10b981' }]}>{resueltosEsteMes}</Text>
+            <View style={styles.columnaLineaBase}>
+              <View 
+                style={[
+                  styles.columnaBarra, 
+                  { 
+                    height: totalGrafica > 0 ? (resueltosEsteMes / maxValor) * 90 : 2,
+                    backgroundColor: '#10b981' 
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={styles.columnaEtiqueta}>Resueltos (Mes)</Text>
+          </View>
+
+          {/* Barra 2: En Proceso */}
+          <View style={styles.graficaColumna}>
+            <Text style={[styles.columnaValor, { color: '#2563eb' }]}>{enProceso}</Text>
+            <View style={styles.columnaLineaBase}>
+              <View 
+                style={[
+                  styles.columnaBarra, 
+                  { 
+                    height: totalGrafica > 0 ? (enProceso / maxValor) * 90 : 2,
+                    backgroundColor: '#2563eb' 
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={styles.columnaEtiqueta}>En Proceso</Text>
+          </View>
+
+          {/* Barra 3: Pendientes */}
+          <View style={styles.graficaColumna}>
+            <Text style={[styles.columnaValor, { color: '#f97316' }]}>{pendientes}</Text>
+            <View style={styles.columnaLineaBase}>
+              <View 
+                style={[
+                  styles.columnaBarra, 
+                  { 
+                    height: totalGrafica > 0 ? (pendientes / maxValor) * 90 : 2,
+                    backgroundColor: '#f97316' 
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={styles.columnaEtiqueta}>Pendientes</Text>
+          </View>
+
+        </View>
+
+        {/* Barra Compartida Horizontal (Proporción Visual) */}
+        <View style={styles.barraHorizontalContenedor}>
+          {totalGrafica === 0 ? (
+            <View style={[styles.segmentoBarra, { width: '100%', backgroundColor: '#e2e8f0' }]} />
+          ) : (
+            <>
+              {resueltosEsteMes > 0 && (
+                <View style={[styles.segmentoBarra, { width: `${(resueltosEsteMes / totalGrafica) * 100}%`, backgroundColor: '#10b981' }]} />
+              )}
+              {enProceso > 0 && (
+                <View style={[styles.segmentoBarra, { width: `${(enProceso / totalGrafica) * 100}%`, backgroundColor: '#2563eb' }]} />
+              )}
+              {pendientes > 0 && (
+                <View style={[styles.segmentoBarra, { width: `${(pendientes / totalGrafica) * 100}%`, backgroundColor: '#f97316' }]} />
+              )}
+            </>
+          )}
+        </View>
       </View>
 
       <Text style={styles.subtituloLista}>
@@ -461,6 +554,78 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '700',
   },
+
+  // ESTILOS DE LA NUEVA GRÁFICA DE RENDIMIENTO
+  graficaTarjeta: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    maxWidth: 1000,
+    alignSelf: 'center',
+    width: Platform.OS === 'web' ? '100%' : 'auto',
+    ...Platform.select({
+      web: {
+        width: 'calc(100% - 40px)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03)'
+      }
+    })
+  },
+  graficaTitulo: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 20,
+  },
+  graficaContenedor: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 140,
+    marginBottom: 20,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  graficaColumna: {
+    alignItems: 'center',
+    width: '30%',
+  },
+  columnaValor: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  columnaLineaBase: {
+    height: 90,
+    width: 24,
+    justifyContent: 'flex-end',
+  },
+  columnaBarra: {
+    width: '100%',
+    borderRadius: 4,
+  },
+  columnaEtiqueta: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 8,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  barraHorizontalContenedor: {
+    height: 8,
+    flexDirection: 'row',
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: '#f1f5f9',
+  },
+  segmentoBarra: {
+    height: '100%',
+  },
+
   lista: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -584,7 +749,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  // Botones por estado individual
   btnPendiente: {
     backgroundColor: '#fff7ed',
     borderColor: '#ffedd5',
