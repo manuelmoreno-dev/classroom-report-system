@@ -2,7 +2,7 @@
 
 > Aplicación móvil Full-Stack para reportar averías en aulas de **escuelas, colegios y universidades** (adaptable a cualquier institución).
 
-![Stack](https://img.shields.io/badge/React_Native-Expo_SDK_54-blue?style=flat-square&logo=expo)
+![Stack](https://img.shields.io/badge/React_Native-Expo_SDK_56-blue?style=flat-square&logo=expo)
 ![Backend](https://img.shields.io/badge/Backend-Node.js_%26_Express-green?style=flat-square&logo=nodedotjs)
 ![Database](https://img.shields.io/badge/Database-MySQL-orange?style=flat-square&logo=mysql)
 ![Language](https://img.shields.io/badge/Language-TypeScript-3178C6?style=flat-square&logo=typescript)
