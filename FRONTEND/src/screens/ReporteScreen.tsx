@@ -1,15 +1,83 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 
 // Importamos nuestra configuración de Axios
 import api from '../api/conexion'; 
 
+// ==========================================
+// COMPONENTE SELECTOR PERSONALIZADO (DROPDOWN ELEGANTE)
+// ==========================================
+interface SelectorProps {
+  label: string;
+  valorSeleccionado: string | number;
+  opciones: { label: string; value: string | number }[];
+  onSeleccionar: (valor: any) => void;
+}
+
+const SelectorPersonalizado = ({ label, valorSeleccionado, opciones, onSeleccionar }: SelectorProps) => {
+  const [abierto, setAbierto] = useState(false);
+  const opcionActiva = opciones.find(o => o.value === valorSeleccionado);
+
+  return (
+    <View style={styles.selectorWrapper}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity 
+        style={[
+          styles.selectorBoton, 
+          abierto && styles.selectorBotonAbierto
+        ]} 
+        onPress={() => setAbierto(!abierto)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.selectorTexto}>
+          {opcionActiva ? opcionActiva.label : 'Seleccionar...'}
+        </Text>
+        <Text style={[styles.selectorFlecha, abierto && styles.selectorFlechaRotada]}>
+          ▼
+        </Text>
+      </TouchableOpacity>
+      
+      {abierto && (
+        <View style={styles.opcionesContenedor}>
+          {opciones.map((opcion, index) => (
+            <TouchableOpacity
+              key={opcion.value}
+              style={[
+                styles.opcionBoton,
+                opcion.value === valorSeleccionado && styles.opcionBotonActivo,
+                index === opciones.length - 1 && { borderBottomWidth: 0 } // Quita el borde al último
+              ]}
+              onPress={() => {
+                onSeleccionar(opcion.value);
+                setAbierto(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.opcionTexto,
+                opcion.value === valorSeleccionado && styles.opcionTextoActivo
+              ]}>
+                {opcion.label}
+              </Text>
+              {opcion.value === valorSeleccionado && (
+                <Text style={styles.checkActivo}>✓</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ==========================================
+// PANTALLA PRINCIPAL DE REPORTES
+// ==========================================
 const ReporteScreen = () => {
   const { usuario } = useLocalSearchParams();
 
-  // Extrae automáticamente la matrícula del correo institucional. Si es el correo genérico 'alumno', lo deja vacío.
+  // Extrae automáticamente la matrícula del correo institucional
   const prefijoCorreo = usuario ? (usuario as string).split('@')[0] : '';
   const matriculaInicial = prefijoCorreo.toLowerCase() !== 'alumno' ? prefijoCorreo.toUpperCase() : '';
 
@@ -19,11 +87,30 @@ const ReporteScreen = () => {
   const [categoria, setCategoria] = useState(1);
   const [descripcion, setDescripcion] = useState('');
 
-  // Estados para controlar el foco en los inputs
+  // Estados de foco e indicaciones visuales
   const [focoMatricula, setFocoMatricula] = useState(false);
   const [focoAula, setFocoAula] = useState(false);
   const [focoDesc, setFocoDesc] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  // Opciones de edificios
+  const opcionesEdificios = [
+    { label: 'Edificio 1', value: '1' },
+    { label: 'Edificio 2', value: '2' },
+    { label: 'Edificio 3', value: '3' },
+    { label: 'Edificio 4', value: '4' },
+    { label: 'Edificio 5', value: '5' },
+    { label: 'Edificio 6', value: '6' },
+    { label: 'Edificio 7', value: '7' },
+  ];
+
+  // Opciones de categorías
+  const opcionesCategorias = [
+    { label: 'Aire Acondicionado', value: 1 },
+    { label: 'Iluminación', value: 2 },
+    { label: 'Redes e Internet', value: 3 },
+    { label: 'Mobiliario', value: 4 },
+  ];
 
   const manejarEnvio = async () => {
     if (!matricula || !aula || !descripcion) {
@@ -43,18 +130,14 @@ const ReporteScreen = () => {
     };
 
     try {
-      // Enviamos los datos al backend
-      const respuesta = await api.post('/reportes', datosReporte);
-      console.log('Respuesta del servidor:', respuesta.data);
+      await api.post('/reportes', datosReporte);
       
-      // Limpiamos el formulario
       setMatricula(usuario ? matriculaInicial : '');
       setAula('');
       setDescripcion('');
       setEdificio('1');
       setCategoria(1);
 
-      // Redirigimos a la pantalla de éxito
       router.replace('/exito-reporte');
     } catch (error) {
       console.error('Error al enviar el reporte:', error);
@@ -110,23 +193,14 @@ const ReporteScreen = () => {
         {/* SECCIÓN 2: UBICACIÓN */}
         <View style={styles.tarjeta}>
           <Text style={styles.seccionTitulo}>📍 2. Ubicación de la falla</Text>
-          <Text style={styles.label}>Edificio:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={edificio}
-              onValueChange={(itemValue) => setEdificio(itemValue)}
-              style={styles.picker}
-              dropdownIconColor="#475569"
-            >
-              <Picker.Item label="Edificio 1" value="1" />
-              <Picker.Item label="Edificio 2" value="2" />
-              <Picker.Item label="Edificio 3" value="3" />
-              <Picker.Item label="Edificio 4" value="4" />
-              <Picker.Item label="Edificio 5" value="5" />
-              <Picker.Item label="Edificio 6" value="6" />
-              <Picker.Item label="Edificio 7" value="7" />
-            </Picker>
-          </View>
+          
+          {/* Selector de Edificio Personalizado */}
+          <SelectorPersonalizado
+            label="Edificio:"
+            valorSeleccionado={edificio}
+            opciones={opcionesEdificios}
+            onSeleccionar={setEdificio}
+          />
 
           <Text style={styles.label}>Aula o Espacio (Ej. 101, Lab A, Baños):</Text>
           <TextInput
@@ -146,20 +220,14 @@ const ReporteScreen = () => {
         {/* SECCIÓN 3: DETALLES DEL PROBLEMA */}
         <View style={styles.tarjeta}>
           <Text style={styles.seccionTitulo}>🛠️ 3. Detalles de la avería</Text>
-          <Text style={styles.label}>Categoría del problema:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={categoria}
-              onValueChange={(itemValue) => setCategoria(Number(itemValue))}
-              style={styles.picker}
-              dropdownIconColor="#475569"
-            >
-              <Picker.Item label="Aire Acondicionado" value={1} />
-              <Picker.Item label="Iluminación" value={2} />
-              <Picker.Item label="Redes e Internet" value={3} />
-              <Picker.Item label="Mobiliario" value={4} />
-            </Picker>
-          </View>
+          
+          {/* Selector de Categoría Personalizado */}
+          <SelectorPersonalizado
+            label="Categoría del problema:"
+            valorSeleccionado={categoria}
+            opciones={opcionesCategorias}
+            onSeleccionar={setCategoria}
+          />
 
           <Text style={styles.label}>Descripción de la falla:</Text>
           <TextInput
@@ -261,7 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#0f172a',
-    marginBottom: 15,
+    marginBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
     paddingBottom: 8,
@@ -269,18 +337,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     color: '#475569',
-    marginBottom: 6,
-    fontWeight: '600',
+    marginBottom: 8,
+    fontWeight: '700',
   },
   input: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderWidth: 1.5,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     color: '#0f172a',
-    marginBottom: 15,
+    marginBottom: 18,
     ...Platform.select({
       web: {
         outlineStyle: 'none'
@@ -290,18 +358,6 @@ const styles = StyleSheet.create({
   textArea: {
     height: 110,
     textAlignVertical: 'top',
-  },
-  pickerContainer: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    marginBottom: 18,
-    overflow: 'hidden',
-  },
-  picker: {
-    color: '#0f172a',
-    height: Platform.OS === 'ios' ? 120 : 50,
   },
   boton: {
     backgroundColor: '#2563eb',
@@ -323,6 +379,75 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // Estilos del Selector Personalizado
+  selectorWrapper: {
+    marginBottom: 18,
+  },
+  selectorBoton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  selectorBotonAbierto: {
+    borderColor: '#2563eb',
+  },
+  selectorTexto: {
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  selectorFlecha: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  selectorFlechaRotada: {
+    transform: [{ rotate: '180deg' }],
+  },
+  opcionesContenedor: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+      }
+    })
+  },
+  opcionBoton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  opcionBotonActivo: {
+    backgroundColor: '#eff6ff',
+  },
+  opcionTexto: {
+    fontSize: 14.5,
+    color: '#334155',
+  },
+  opcionTextoActivo: {
+    color: '#2563eb',
+    fontWeight: '700',
+  },
+  checkActivo: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: 'bold',
   }
 });
 
