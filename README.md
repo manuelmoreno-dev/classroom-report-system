@@ -1,4 +1,3 @@
-git add README.md
 # 📱 Classroom Report System — UPA
 
 > Aplicación móvil Full-Stack para reportar averías en aulas de la **Universidad Politécnica de Aguascalientes**.
@@ -134,7 +133,7 @@ Esta opción levanta automáticamente la base de datos MySQL, la API de Node.js 
    docker compose down
    ```
 
-*Nota: La base de datos se inicializa automáticamente con `database/schema.sql` y guarda los datos en un volumen persistente de Docker. La comunicación se realiza usando tu IP física `192.168.1.84`. Si tu IP cambia, actualízala en el archivo `docker-compose.yml` en las variables `REACT_NATIVE_PACKAGER_HOSTNAME` y `EXPO_PUBLIC_API_URL`.*
+*Nota: La base de datos se inicializa automáticamente con `database/schema.sql` y guarda los datos en un volumen persistente de Docker. La comunicación se realiza usando tu IP física `192.168.1.72`. Si tu IP cambia, actualízala en el archivo `docker-compose.yml` en las variables `REACT_NATIVE_PACKAGER_HOSTNAME` y `EXPO_PUBLIC_API_URL`.*
 
 ---
 
