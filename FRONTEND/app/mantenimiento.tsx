@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import api from '../src/api/conexion'; // Tu configuración de Axios con la IP de tu compu
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Alert, Platform } from 'react-native';
+import api from '../src/api/conexion'; // Tu configuración de Axios
+import { useLocalSearchParams, router } from 'expo-router';
 
-// Definimos la estructura de un reporte según lo que regresa tu Backend
 interface Reporte {
   id_reporte: number;
   descripcion: string;
@@ -11,16 +10,16 @@ interface Reporte {
   fecha_reporte: string;
   reportado_por: string;
   edificio: string;
-  id_aula: number; // o nombre_aula si ajustaste el JOIN en el backend
+  id_aula: number;
   nombre_aula?: string;
   categoria: string;
 }
 
-// Diccionario de colores para los estados (fuera del componente para evitar recrearlo)
+// Diccionario de colores para los estados
 const COLORES_ESTADO: Record<string, string> = {
-  'pendiente': '#ff9800',
-  'en proceso': '#2196f3',
-  'resuelto': '#4caf50',
+  'pendiente': '#f97316',   // Naranja
+  'en proceso': '#2563eb',  // Azul
+  'resuelto': '#10b981',    // Verde
 };
 
 // Diccionario para convertir el ID de categoría a nombre legible
@@ -32,22 +31,22 @@ const CATEGORIAS_TEXTO: Record<string | number, string> = {
 };
 
 export default function HistorialScreen() {
-  const { usuario } = useLocalSearchParams(); // Obtenemos el correo del usuario logueado
+  const { usuario } = useLocalSearchParams(); // Correo del admin logueado
   
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
-  const [filtro, setFiltro] = useState<string>('activos'); // Estado para controlar qué sección del menú se ve
-  const [mostrarInfo, setMostrarInfo] = useState(false); // Estado para el panel extra
+  const [filtro, setFiltro] = useState<string>('activos'); // Pestaña de filtro seleccionada
+  const [mostrarInfo, setMostrarInfo] = useState(false); // Diagnósticos
 
-  // Función para obtener los reportes desde el backend
+  // Obtener los reportes desde el backend
   const obtenerReportes = async () => {
     try {
       const respuesta = await api.get('/reportes');
       setReportes(respuesta.data);
     } catch (error) {
       console.error('Error al obtener los reportes:', error);
-      Alert.alert('Error', 'No se pudieron cargar los reportes de mantenimiento.');
+      Alert.alert('Fallo de Sincronización', 'No se pudieron recuperar los reportes de la base de datos de Docker.');
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -58,101 +57,113 @@ export default function HistorialScreen() {
     obtenerReportes();
   }, []);
 
-  // Función para arrastrar hacia abajo y actualizar la lista
   const alRefrescar = () => {
     setRefrescando(true);
     obtenerReportes();
   };
 
-  // Función para darle color al texto según el estado del reporte
-  const obtenerColorEstado = (estado: string) => {
-    const estadoNormalizado = estado?.toLowerCase() || '';
-    return COLORES_ESTADO[estadoNormalizado] || '#757575';
-  };
-
-  // Función para cambiar el estado enviándolo al backend
+  // Cambiar el estado de un reporte
   const cambiarEstado = async (id_reporte: number, nuevoEstado: string) => {
     try {
       await api.put(`/reportes/${id_reporte}/estado`, { estado: nuevoEstado });
       
-      // Actualizamos la lista localmente sin necesidad de recargarla de internet
+      // Actualizamos localmente
       setReportes((reportesAnteriores) => 
         reportesAnteriores.map((rep) => 
           rep.id_reporte === id_reporte ? { ...rep, estado: nuevoEstado } : rep
         )
       );
-      Alert.alert('Éxito', `El estado se actualizó a: ${nuevoEstado}`);
+      
+      if (Platform.OS === 'web') {
+        window.alert(`Éxito\n\nEl reporte #${id_reporte} se actualizó a: ${nuevoEstado.toUpperCase()}`);
+      } else {
+        Alert.alert('Estado Actualizado', `El reporte #${id_reporte} ahora está como: ${nuevoEstado}.`);
+      }
     } catch (error) {
-      console.error('Error al cambiar el estado:', error);
-      Alert.alert('Error', 'No se pudo actualizar el estado del reporte.');
+      console.error('Error al actualizar el estado:', error);
+      Alert.alert('Error', 'No se pudieron guardar los cambios en el servidor.');
     }
   };
 
+  const obtenerColorEstado = (estado: string) => {
+    const estadoNormalizado = estado?.toLowerCase() || '';
+    return COLORES_ESTADO[estadoNormalizado] || '#64748b';
+  };
+
   // Diseño de cada tarjeta de reporte
-  const renderItem = ({ item }: { item: Reporte }) => (
-    <View style={styles.tarjeta}>
-      <View style={styles.encabezadoTarjeta}>
-        <Text style={styles.categoriaTxt}>
-          🛠️ {CATEGORIAS_TEXTO[item.categoria] || `Otra falla (${item.categoria})`}
+  const renderItem = ({ item }: { item: Reporte }) => {
+    const colorEstado = obtenerColorEstado(item.estado);
+    const nombreCategoria = CATEGORIAS_TEXTO[item.categoria] || `Otra falla (${item.categoria})`;
+
+    return (
+      <View style={[styles.tarjeta, { borderLeftColor: colorEstado }]}>
+        <View style={styles.encabezadoTarjeta}>
+          <View style={styles.categoriaBadge}>
+            <Text style={styles.categoriaTxt}>🛠️ {nombreCategoria}</Text>
+          </View>
+          <Text style={[styles.estadoTxt, { color: colorEstado }]}>
+            ● {item.estado?.toUpperCase() || 'PENDIENTE'}
+          </Text>
+        </View>
+
+        <Text style={styles.ubicacionTxt}>
+          📍 Edificio {item.edificio} - Aula {item.nombre_aula || item.id_aula}
         </Text>
-        <Text style={[styles.estadoTxt, { color: obtenerColorEstado(item.estado) }]}>
-          {item.estado || 'Pendiente'}
-        </Text>
-      </View>
 
-      <Text style={styles.ubicacionTxt}>
-  📍 Edificio {item.edificio} - Aula {item.nombre_aula || item.id_aula}
-</Text>
+        <View style={styles.seccionDetalle}>
+          <Text style={styles.labelDetalle}>DESCRIPCIÓN DEL INCIDENTE</Text>
+          <Text style={styles.descripcionTxt}>{item.descripcion}</Text>
+        </View>
 
-      <View style={styles.seccionDetalle}>
-        <Text style={styles.labelDetalle}>Descripción completa:</Text>
-        <Text style={styles.descripcionTxt}>{item.descripcion}</Text>
-      </View>
+        <View style={styles.pieTarjeta}>
+          <Text style={styles.usuarioTxt}>👤 Reporta: {item.reportado_por || 'Alumno'}</Text>
+          <Text style={styles.fechaTxt}>
+            📅 {new Date(item.fecha_reporte).toLocaleDateString()} {new Date(item.fecha_reporte).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
 
-      <View style={styles.pieTarjeta}>
-        <Text style={styles.usuarioTxt}>👤 Alumno: {item.reportado_por || 'Usuario'}</Text>
-        <Text style={styles.fechaTxt}>
-          📅 {new Date(item.fecha_reporte).toLocaleDateString()} {new Date(item.fecha_reporte).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
+        {/* Controles de Mantenimiento */}
+        <View style={styles.adminControles}>
+          <Text style={styles.adminTitulo}>REASIGNAR ESTADO DE INCIDENCIA</Text>
+          <View style={styles.botonesEstado}>
+            <TouchableOpacity 
+              style={[styles.btnEstado, styles.btnPendiente, item.estado === 'pendiente' && styles.btnPendienteActivo]}
+              onPress={() => cambiarEstado(item.id_reporte, 'pendiente')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.btnEstadoTxt, { color: '#c2410c' }]}>Pendiente</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.btnEstado, styles.btnProceso, item.estado === 'en proceso' && styles.btnProcesoActivo]}
+              onPress={() => cambiarEstado(item.id_reporte, 'en proceso')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.btnEstadoTxt, { color: '#1d4ed8' }]}>Proceso</Text>
+            </TouchableOpacity>
 
-      {/* Controles de Administrador */}
-      <View style={styles.adminControles}>
-        <Text style={styles.adminTitulo}>Cambiar estado (Admin):</Text>
-        <View style={styles.botonesEstado}>
-          <TouchableOpacity 
-            style={[styles.btnEstado, { backgroundColor: COLORES_ESTADO['pendiente'] }]}
-            onPress={() => cambiarEstado(item.id_reporte, 'pendiente')}
-          >
-            <Text style={styles.btnEstadoTxt}>Pendiente</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.btnEstado, { backgroundColor: COLORES_ESTADO['en proceso'] }]}
-            onPress={() => cambiarEstado(item.id_reporte, 'en proceso')}
-          >
-            <Text style={styles.btnEstadoTxt}>En Proceso</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.btnEstado, { backgroundColor: COLORES_ESTADO['resuelto'] }]}
-            onPress={() => cambiarEstado(item.id_reporte, 'resuelto')}
-          >
-            <Text style={styles.btnEstadoTxt}>Resuelto</Text>
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.btnEstado, styles.btnResuelto, item.estado === 'resuelto' && styles.btnResueltoActivo]}
+              onPress={() => cambiarEstado(item.id_reporte, 'resuelto')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.btnEstadoTxt, { color: '#047857' }]}>Resuelto</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
-  // Cálculos automáticos para el Dashboard
+  // Estadísticas automáticas para el Dashboard
   const pendientes = reportes.filter(r => (r.estado || 'pendiente').toLowerCase() === 'pendiente').length;
   const enProceso = reportes.filter(r => (r.estado || '').toLowerCase() === 'en proceso').length;
   const resueltos = reportes.filter(r => (r.estado || '').toLowerCase() === 'resuelto').length;
-  const activos = pendientes + enProceso; // Total de los que requieren atención
+  const activos = pendientes + enProceso;
 
-  // Filtramos la lista dependiendo del menú seleccionado
+  // Filtro
   const reportesFiltrados = reportes.filter(r => {
     const estadoNormalizado = (r.estado || 'pendiente').toLowerCase();
-    // Si estamos en la pestaña principal, mostramos todo menos los resueltos
     if (filtro === 'activos') return estadoNormalizado !== 'resuelto';
     return estadoNormalizado === filtro;
   });
@@ -160,47 +171,57 @@ export default function HistorialScreen() {
   if (cargando) {
     return (
       <View style={styles.centro}>
-        <ActivityIndicator size="large" color="#00529b" />
-        <Text style={styles.cargandoTxt}>Cargando reportes de la UPA...</Text>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.cargandoTxt}>Cargando reportes del servidor...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.contenedor}>
-      <Text style={styles.titulo}>Panel de Reportes</Text>
       
-      {/* Encabezado del Perfil y Botón de Información */}
+      {/* Cabecera superior */}
+      <View style={styles.headerDashboard}>
+        <TouchableOpacity style={styles.btnSalir} onPress={() => router.replace('/')}>
+          <Text style={styles.txtBtnSalir}>← CERRAR CONSOLA</Text>
+        </TouchableOpacity>
+        <Text style={styles.subtituloCyber}>SISTEMA DE MANTENIMIENTO E INFRAESTRUCTURA</Text>
+        <Text style={styles.titulo}>Consola de Control</Text>
+      </View>
+
+      {/* Tarjeta del Administrador Logueado */}
       <View style={styles.headerPanel}>
         <View style={styles.perfilInfo}>
-          <Text style={styles.perfilAvatar}>👨‍💼</Text>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.perfilAvatar}>👨‍💼</Text>
+          </View>
           <View>
-            <Text style={styles.perfilNombre}>Administrador de Sistema</Text>
+            <Text style={styles.perfilNombre}>Administrador Central</Text>
             <Text style={styles.perfilEmail}>{usuario || 'admin@upa.edu.mx'}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => setMostrarInfo(!mostrarInfo)} style={styles.btnInfo}>
-          <Text style={styles.btnInfoTxt}>ℹ️ Info Sistema</Text>
+          <Text style={styles.btnInfoTxt}>Diagnóstico</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Panel de Información Desplegable */}
+      {/* Panel Diagnóstico */}
       {mostrarInfo && (
         <View style={styles.infoPanel}>
-          <Text style={styles.infoTitulo}>Acerca del Sistema de Mantenimiento</Text>
-          <Text style={styles.infoTexto}>• Base de Datos: Conectada (MySQL Activo)</Text>
-          <Text style={styles.infoTexto}>• Servidor: {api.defaults.baseURL || 'Localhost'}</Text>
-          <Text style={styles.infoTexto}>• Los reportes con estado "Resuelto" se guardan automáticamente en el historial.</Text>
+          <Text style={styles.infoTitulo}>🩺 Diagnóstico de Entorno</Text>
+          <Text style={styles.infoTexto}>• Base de Datos: Docker Container Active (MySQL 8)</Text>
+          <Text style={styles.infoTexto}>• API Endpoint: {api.defaults.baseURL}</Text>
+          <Text style={styles.infoTexto}>• Carga de Base de Datos: {reportes.length} registros totales</Text>
         </View>
       )}
 
-      {/* Dashboard Resumen como Menú Interactivo */}
+      {/* Pestañas de Filtro / Estadísticas */}
       <View style={styles.dashboardContainer}>
         <TouchableOpacity 
-          style={[styles.cardStat, filtro === 'activos' ? styles.cardActiva : styles.cardInactiva, { borderLeftColor: '#e91e63' }]}
+          style={[styles.cardStat, filtro === 'activos' ? styles.cardActiva : styles.cardInactiva, { borderLeftColor: '#ef4444' }]}
           onPress={() => setFiltro('activos')}
         >
-          <Text style={styles.statNumero}>{activos}</Text>
+          <Text style={[styles.statNumero, { color: '#dc2626' }]}>{activos}</Text>
           <Text style={styles.statLabel}>🚨 Prioridad</Text>
         </TouchableOpacity>
 
@@ -208,7 +229,7 @@ export default function HistorialScreen() {
           style={[styles.cardStat, filtro === 'pendiente' ? styles.cardActiva : styles.cardInactiva, { borderLeftColor: COLORES_ESTADO['pendiente'] }]}
           onPress={() => setFiltro('pendiente')}
         >
-          <Text style={styles.statNumero}>{pendientes}</Text>
+          <Text style={[styles.statNumero, { color: '#d97706' }]}>{pendientes}</Text>
           <Text style={styles.statLabel}>Pendientes</Text>
         </TouchableOpacity>
 
@@ -216,7 +237,7 @@ export default function HistorialScreen() {
           style={[styles.cardStat, filtro === 'en proceso' ? styles.cardActiva : styles.cardInactiva, { borderLeftColor: COLORES_ESTADO['en proceso'] }]}
           onPress={() => setFiltro('en proceso')}
         >
-          <Text style={styles.statNumero}>{enProceso}</Text>
+          <Text style={[styles.statNumero, { color: '#2563eb' }]}>{enProceso}</Text>
           <Text style={styles.statLabel}>En Proceso</Text>
         </TouchableOpacity>
 
@@ -224,21 +245,21 @@ export default function HistorialScreen() {
           style={[styles.cardStat, filtro === 'resuelto' ? styles.cardActiva : styles.cardInactiva, { borderLeftColor: COLORES_ESTADO['resuelto'] }]}
           onPress={() => setFiltro('resuelto')}
         >
-          <Text style={styles.statNumero}>{resueltos}</Text>
-          <Text style={styles.statLabel}>✅ Resueltos</Text>
+          <Text style={[styles.statNumero, { color: '#059669' }]}>{resueltos}</Text>
+          <Text style={styles.statLabel}>Resueltos</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.subtituloLista}>
-        {filtro === 'activos' ? 'Mostrando: Reportes que requieren atención' : 
-         filtro === 'pendiente' ? 'Mostrando: Reportes pendientes' :
-         filtro === 'en proceso' ? 'Mostrando: Reportes en proceso' :
-         'Mostrando: Historial de reportes resueltos'}
+        {filtro === 'activos' ? 'MOSTRANDO: REPORTES CON ATENCIÓN REQUERIDA' : 
+         filtro === 'pendiente' ? 'MOSTRANDO: REPORTES PENDIENTES' :
+         filtro === 'en proceso' ? 'MOSTRANDO: REPORTES EN PROCESO' :
+         'MOSTRANDO: HISTORIAL DE INCIDENCIAS RESUELTAS'}
       </Text>
 
       {reportesFiltrados.length === 0 ? (
-        <View style={styles.centro}>
-          <Text style={styles.vacioTxt}>No hay reportes en esta categoría. ¡Todo en orden!</Text>
+        <View style={styles.centroVacio}>
+          <Text style={styles.vacioTxt}>No se encontraron reportes en esta categoría.</Text>
         </View>
       ) : (
         <FlatList
@@ -247,7 +268,7 @@ export default function HistorialScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.lista}
           refreshControl={
-            <RefreshControl refreshing={refrescando} onRefresh={alRefrescar} colors={['#00529b']} />
+            <RefreshControl refreshing={refrescando} onRefresh={alRefrescar} colors={['#2563eb']} tintColor="#2563eb" />
           }
         />
       )}
@@ -258,221 +279,294 @@ export default function HistorialScreen() {
 const styles = StyleSheet.create({
   contenedor: {
     flex: 1,
-    backgroundColor: '#eef2f5',
-    paddingTop: 20,
+    backgroundColor: '#f8fafc',
+    paddingTop: Platform.OS === 'ios' ? 40 : 20,
+  },
+  headerDashboard: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 1000,
+  },
+  btnSalir: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 15,
+  },
+  txtBtnSalir: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  subtituloCyber: {
+    color: '#2563eb',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
   titulo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00529b',
-    textAlign: 'center',
-    marginBottom: 15,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0f172a',
   },
   centro: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 30,
+    backgroundColor: '#f8fafc',
+  },
+  centroVacio: {
+    padding: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cargandoTxt: {
-    marginTop: 10,
-    color: '#666',
+    marginTop: 12,
+    color: '#2563eb',
+    fontWeight: '700',
   },
   vacioTxt: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 14,
+    color: '#64748b',
     textAlign: 'center',
+    fontWeight: '500',
   },
   headerPanel: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    marginHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     maxWidth: 1000,
     alignSelf: 'center',
-    width: '100%',
+    width: Platform.OS === 'web' ? '100%' : 'auto',
+    ...Platform.select({
+      web: {
+        width: 'calc(100% - 40px)'
+      }
+    })
   },
   perfilInfo: { flexDirection: 'row', alignItems: 'center' },
-  perfilAvatar: { fontSize: 32, marginRight: 12 },
-  perfilNombre: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  perfilEmail: { fontSize: 13, color: '#666' },
+  avatarContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  perfilAvatar: { fontSize: 22 },
+  perfilNombre: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+  perfilEmail: { fontSize: 12, color: '#475569', marginTop: 2 },
   btnInfo: {
-    backgroundColor: '#e1f5fe',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 8,
   },
-  btnInfoTxt: { color: '#00529b', fontWeight: 'bold', fontSize: 13 },
+  btnInfoTxt: { color: '#1d4ed8', fontWeight: '700', fontSize: 12 },
   infoPanel: {
-    backgroundColor: '#e8f4f8',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    marginHorizontal: 10,
+    backgroundColor: '#f0f9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    marginHorizontal: 20,
     borderLeftWidth: 4,
-    borderLeftColor: '#00529b',
+    borderLeftColor: '#0284c7',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
     maxWidth: 1000,
     alignSelf: 'center',
-    width: '100%',
+    width: Platform.OS === 'web' ? '100%' : 'auto',
+    ...Platform.select({
+      web: {
+        width: 'calc(100% - 40px)'
+      }
+    })
   },
   infoTitulo: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#00529b',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0369a1',
     marginBottom: 8,
   },
-  infoTexto: { fontSize: 13, color: '#444', marginBottom: 4 },
-
+  infoTexto: { fontSize: 13.5, color: '#334155', marginBottom: 5 },
   dashboardContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
     alignSelf: 'center',
     width: '100%',
     maxWidth: 1000,
   },
   cardStat: {
     flex: 1,
-    minWidth: 120, // Si la pantalla es pequeña (celular) se apilan, si es grande (PC) se alinean.
+    minWidth: 105,
     margin: 5,
-    padding: 15,
-    borderRadius: 8,
-    borderLeftWidth: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   cardActiva: {
     backgroundColor: '#ffffff',
-    transform: [{ scale: 1.02 }],
-    shadowOpacity: 0.2,
-    elevation: 4,
+    borderColor: '#cbd5e1',
+    transform: [{ scale: 1.01 }],
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+      }
+    })
   },
   cardInactiva: {
-    backgroundColor: '#f2f2f2',
-    opacity: 0.65,
-    elevation: 1,
-    shadowOpacity: 0.05,
+    backgroundColor: '#f8fafc',
+    opacity: 0.6,
   },
   subtituloLista: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#444',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
     marginTop: 5,
+    letterSpacing: 1,
   },
   statNumero: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 26,
+    fontWeight: '800',
   },
   statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-    fontWeight: '500',
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 6,
+    fontWeight: '700',
   },
   lista: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
     alignSelf: 'center',
     width: '100%',
-    maxWidth: 1000, // Limita el ancho en computadoras
+    maxWidth: 1000,
   },
   tarjeta: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderLeftWidth: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+      },
+      web: {
+        boxShadow: '0 2px 4px 0 rgba(0,0,0,0.02)'
+      }
+    })
   },
   encabezadoTarjeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  categoriaTxt: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    backgroundColor: '#e1f5fe',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  estadoTxt: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
-  ubicacionTxt: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#00529b',
-    marginBottom: 6,
-  },
-  seccionDetalle: {
-    backgroundColor: '#f9f9f9',
-    padding: 10,
-    borderRadius: 6,
     marginBottom: 12,
   },
-  labelDetalle: {
+  categoriaBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  categoriaTxt: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  estadoTxt: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  ubicacionTxt: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 10,
+  },
+  seccionDetalle: {
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  labelDetalle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748b',
+    marginBottom: 5,
+    letterSpacing: 0.5,
   },
   descripcionTxt: {
     fontSize: 14,
-    color: '#444',
+    color: '#334155',
     lineHeight: 20,
   },
   pieTarjeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 8,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 10,
+    marginBottom: 16,
   },
   usuarioTxt: {
-    fontSize: 12,
-    color: '#777',
-    fontStyle: 'italic',
+    fontSize: 12.5,
+    color: '#475569',
+    fontWeight: '500',
   },
   fechaTxt: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11.5,
+    color: '#64748b',
   },
   adminControles: {
-    marginTop: 15,
-    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#f1f5f9',
+    paddingTop: 14,
   },
   adminTitulo: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#555',
-    marginBottom: 8,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+    marginBottom: 10,
+    letterSpacing: 0.5,
   },
   botonesEstado: {
     flexDirection: 'row',
@@ -480,14 +574,39 @@ const styles = StyleSheet.create({
   },
   btnEstado: {
     flex: 1,
-    paddingVertical: 8,
-    marginHorizontal: 3,
-    borderRadius: 5,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
   },
   btnEstadoTxt: {
-    color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
+  },
+  // Botones por estado individual
+  btnPendiente: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#ffedd5',
+  },
+  btnPendienteActivo: {
+    borderColor: '#f97316',
+    backgroundColor: '#ffedd5',
+  },
+  btnProceso: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#dbeafe',
+  },
+  btnProcesoActivo: {
+    borderColor: '#2563eb',
+    backgroundColor: '#dbeafe',
+  },
+  btnResuelto: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#d1fae5',
+  },
+  btnResueltoActivo: {
+    borderColor: '#10b981',
+    backgroundColor: '#d1fae5',
   },
 });

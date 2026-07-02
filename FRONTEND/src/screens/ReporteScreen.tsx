@@ -1,29 +1,41 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
-// 1. Importamos nuestra configuración de Axios
+// Importamos nuestra configuración de Axios
 import api from '../api/conexion'; 
 
 const ReporteScreen = () => {
-  const [matricula, setMatricula] = useState(''); 
+  const { usuario } = useLocalSearchParams();
+
+  // Extrae automáticamente la matrícula del correo institucional. Si es el correo genérico 'alumno', lo deja vacío.
+  const prefijoCorreo = usuario ? (usuario as string).split('@')[0] : '';
+  const matriculaInicial = prefijoCorreo.toLowerCase() !== 'alumno' ? prefijoCorreo.toUpperCase() : '';
+
+  const [matricula, setMatricula] = useState(matriculaInicial); 
   const [edificio, setEdificio] = useState('1');
   const [aula, setAula] = useState('');
   const [categoria, setCategoria] = useState(1);
   const [descripcion, setDescripcion] = useState('');
 
+  // Estados para controlar el foco en los inputs
+  const [focoMatricula, setFocoMatricula] = useState(false);
+  const [focoAula, setFocoAula] = useState(false);
+  const [focoDesc, setFocoDesc] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+
   const manejarEnvio = async () => {
-  if (!matricula || !aula || !descripcion) {
-    Alert.alert('Error', 'Por favor completa todos los campos (Matrícula, Aula y Descripción).');
-    return;
+    if (!matricula || !aula || !descripcion) {
+      Alert.alert('Campos Incompletos', 'Por favor completa todos los campos obligatorios (Matrícula, Aula y Descripción).');
+      return;
     }
 
-    // Limpiamos lo que escribió el usuario (quita espacios y ajusta letras)
     const aulaLimpia = aula.trim(); 
+    setEnviando(true);
 
     const datosReporte = {
-      matricula_usuario: matricula,
+      matricula_usuario: matricula.toUpperCase(),
       edificio: edificio,
       aula: aulaLimpia, 
       id_categoria: categoria,
@@ -31,30 +43,33 @@ const ReporteScreen = () => {
     };
 
     try {
-      // 3. Enviamos los datos al backend usando POST
+      // Enviamos los datos al backend
       const respuesta = await api.post('/reportes', datosReporte);
-      
       console.log('Respuesta del servidor:', respuesta.data);
       
-      // 4. Limpiamos el formulario para un nuevo reporte
-      setMatricula('');
+      // Limpiamos el formulario
+      setMatricula(usuario ? matriculaInicial : '');
       setAula('');
       setDescripcion('');
       setEdificio('1');
       setCategoria(1);
 
-      // 5. Redirigimos a la pantalla de éxito
+      // Redirigimos a la pantalla de éxito
       router.replace('/exito-reporte');
-
     } catch (error) {
       console.error('Error al enviar el reporte:', error);
-      Alert.alert('Error de conexión', 'No se pudo comunicar con el servidor. Verifica tu IP y que Node.js esté corriendo.');
+      Alert.alert(
+        'Fallo de Conexión', 
+        'No se pudo conectar al servidor. Asegúrate de que el entorno Docker esté corriendo.'
+      );
+    } finally {
+      setEnviando(false);
     }
   };
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
+      style={{ flex: 1, backgroundColor: '#f8fafc' }} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 70}
     >
@@ -63,31 +78,45 @@ const ReporteScreen = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.titulo}>📝 Nuevo Reporte de Mantenimiento</Text>
-        <Text style={styles.subtitulo}>Ayúdanos a mantener la universidad en excelentes condiciones detallando la falla a continuación.</Text>
+        {/* Cabecera superior */}
+        <View style={styles.cabecera}>
+          <TouchableOpacity style={styles.btnSalir} onPress={() => router.replace('/')}>
+            <Text style={styles.txtBtnSalir}>← SALIR AL MENÚ</Text>
+          </TouchableOpacity>
+          <Text style={styles.subtituloCyber}>PORTAL DE REPORTES UPA</Text>
+          <Text style={styles.titulo}>Nuevo Reporte de Falla</Text>
+        </View>
 
         {/* SECCIÓN 1: DATOS DEL ALUMNO */}
         <View style={styles.tarjeta}>
-          <Text style={styles.seccionTitulo}>👤 1. Datos del Solicitante</Text>
-          <Text style={styles.label}>Matrícula:</Text>
+          <Text style={styles.seccionTitulo}>👤 1. Identificación</Text>
+          <Text style={styles.label}>Matrícula del solicitante:</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              { borderColor: focoMatricula ? '#2563eb' : '#cbd5e1' }
+            ]}
             placeholder="Ej. UP20460"
-            placeholderTextColor="#999"
+            placeholderTextColor="#94a3b8"
             value={matricula}
             onChangeText={setMatricula}
             maxLength={10}
+            autoCapitalize="characters"
+            onFocus={() => setFocoMatricula(true)}
+            onBlur={() => setFocoMatricula(false)}
           />
         </View>
 
         {/* SECCIÓN 2: UBICACIÓN */}
         <View style={styles.tarjeta}>
-          <Text style={styles.seccionTitulo}>📍 2. Ubicación de la Falla</Text>
+          <Text style={styles.seccionTitulo}>📍 2. Ubicación de la falla</Text>
           <Text style={styles.label}>Edificio:</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={edificio}
               onValueChange={(itemValue) => setEdificio(itemValue)}
+              style={styles.picker}
+              dropdownIconColor="#475569"
             >
               <Picker.Item label="Edificio 1" value="1" />
               <Picker.Item label="Edificio 2" value="2" />
@@ -99,24 +128,31 @@ const ReporteScreen = () => {
             </Picker>
           </View>
 
-          <Text style={styles.label}>Aula o Espacio (Ej. 101, LabA, Baños):</Text>
+          <Text style={styles.label}>Aula o Espacio (Ej. 101, Lab A, Baños):</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Ej. LabA"
-            placeholderTextColor="#999"
+            style={[
+              styles.input,
+              { borderColor: focoAula ? '#2563eb' : '#cbd5e1' }
+            ]}
+            placeholder="Ej. 101"
+            placeholderTextColor="#94a3b8"
             value={aula}
             onChangeText={setAula}
+            onFocus={() => setFocoAula(true)}
+            onBlur={() => setFocoAula(false)}
           />
         </View>
 
         {/* SECCIÓN 3: DETALLES DEL PROBLEMA */}
         <View style={styles.tarjeta}>
-          <Text style={styles.seccionTitulo}>🛠️ 3. Detalles del Problema</Text>
-          <Text style={styles.label}>Tipo de Avería:</Text>
+          <Text style={styles.seccionTitulo}>🛠️ 3. Detalles de la avería</Text>
+          <Text style={styles.label}>Categoría del problema:</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={categoria}
               onValueChange={(itemValue) => setCategoria(Number(itemValue))}
+              style={styles.picker}
+              dropdownIconColor="#475569"
             >
               <Picker.Item label="Aire Acondicionado" value={1} />
               <Picker.Item label="Iluminación" value={2} />
@@ -125,121 +161,169 @@ const ReporteScreen = () => {
             </Picker>
           </View>
 
-          <Text style={styles.label}>Descripción detallada:</Text>
+          <Text style={styles.label}>Descripción de la falla:</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Describe exactamente qué está fallando..."
-            placeholderTextColor="#999"
+            style={[
+              styles.input,
+              styles.textArea,
+              { borderColor: focoDesc ? '#2563eb' : '#cbd5e1' }
+            ]}
+            placeholder="Describe brevemente qué falla o avería se presenta..."
+            placeholderTextColor="#94a3b8"
             value={descripcion}
             onChangeText={setDescripcion}
             multiline={true}
             numberOfLines={5}
+            onFocus={() => setFocoDesc(true)}
+            onBlur={() => setFocoDesc(false)}
           />
         </View>
 
-        <TouchableOpacity style={styles.boton} onPress={manejarEnvio}>
-          <Text style={styles.textoBoton}>Enviar Reporte 🚀</Text>
-        </TouchableOpacity>
+        {/* Botón de Enviar */}
+        {enviando ? (
+          <View style={styles.cargandoContainer}>
+            <Text style={styles.cargandoTexto}>Enviando reporte...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.boton} onPress={manejarEnvio} activeOpacity={0.8}>
+            <Text style={styles.textoBoton}>Enviar Reporte de Mantenimiento</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
-// ==========================================
-// ESTILOS DE LA PANTALLA
-// ==========================================
 const styles = StyleSheet.create({
   contenedor: {
     flex: 1,
-    backgroundColor: '#eef2f5',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 120, // Aumentado para que puedas desplazar el formulario hasta arriba
+    padding: 24,
+    paddingBottom: 80,
     alignSelf: 'center',
     width: '100%',
-    maxWidth: 600, // Ancho máximo del formulario
+    maxWidth: 600,
+  },
+  cabecera: {
+    marginBottom: 20,
+  },
+  btnSalir: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 20,
+  },
+  txtBtnSalir: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  subtituloCyber: {
+    color: '#2563eb',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
   titulo: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#00529b',
-    marginBottom: 10,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  subtitulo: {
-    fontSize: 14,
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 25,
-    lineHeight: 20,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0f172a',
   },
   tarjeta: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)'
+      }
+    })
   },
   seccionTitulo: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: '#0f172a',
     marginBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f1f5f9',
     paddingBottom: 8,
   },
   label: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 6,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#0f172a',
     marginBottom: 15,
-    fontSize: 16,
-    color: '#333',
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none'
+      }
+    })
   },
   textArea: {
-    height: 120,
+    height: 110,
     textAlignVertical: 'top',
   },
   pickerContainer: {
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
     borderRadius: 8,
-    marginBottom: 15,
+    marginBottom: 18,
     overflow: 'hidden',
   },
+  picker: {
+    color: '#0f172a',
+    height: Platform.OS === 'ios' ? 120 : 50,
+  },
   boton: {
-    backgroundColor: '#4caf50', // Verde de éxito
+    backgroundColor: '#2563eb',
     paddingVertical: 16,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#4caf50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
+    justifyContent: 'center',
   },
   textoBoton: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
+  cargandoContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  cargandoTexto: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '700',
+  }
 });
 
 export default ReporteScreen;
