@@ -1,4 +1,4 @@
--- Esquema de base de datos para Classroom Report System (UPA)
+-- Esquema de base de datos para Classroom Report System (General/Escolar)
 
 CREATE DATABASE IF NOT EXISTS upa_reportes;
 USE upa_reportes;

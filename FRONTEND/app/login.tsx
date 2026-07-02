@@ -131,7 +131,7 @@ export default function LoginScreen() {
         </View>
       </View>
       
-      <Text style={styles.footer}>Universidad Politécnica de Aguascalientes</Text>
+      <Text style={styles.footer}>Sistema de Reportes Escolar</Text>
     </View>
   );
 }

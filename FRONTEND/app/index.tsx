@@ -9,9 +9,9 @@ export default function Index() {
         
         {/* Cabecera Principal */}
         <View style={styles.cabeceraContainer}>
-          <Text style={styles.organizacion}>UNIVERSIDAD POLITÉCNICA DE AGUASCALIENTES</Text>
+          <Text style={styles.organizacion}>SISTEMA ESCOLAR / UNIVERSITARIO</Text>
           <Text style={styles.titulo}>Sistema de Reportes</Text>
-          <Text style={styles.subtitulo}>Mantenimiento e Infraestructura UPA</Text>
+          <Text style={styles.subtitulo}>Mantenimiento e Infraestructura</Text>
           <View style={styles.divisor} />
         </View>
 
@@ -65,7 +65,7 @@ export default function Index() {
 
       </View>
 
-      <Text style={styles.footer}>© 2026 Universidad Politécnica de Aguascalientes</Text>
+      <Text style={styles.footer}>© 2026 Portal de Mantenimiento Escolar</Text>
     </View>
   );
 }

@@ -166,7 +166,7 @@ const ReporteScreen = () => {
           <TouchableOpacity style={styles.btnSalir} onPress={() => router.replace('/')}>
             <Text style={styles.txtBtnSalir}>← SALIR AL MENÚ</Text>
           </TouchableOpacity>
-          <Text style={styles.subtituloCyber}>PORTAL DE REPORTES UPA</Text>
+          <Text style={styles.subtituloCyber}>PORTAL DE REPORTES ESCOLAR</Text>
           <Text style={styles.titulo}>Nuevo Reporte de Falla</Text>
         </View>
 

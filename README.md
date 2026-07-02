@@ -1,6 +1,6 @@
-# 📱 Classroom Report System — UPA
+# 📱 Classroom Report System — Sistema de Reportes Escolar
 
-> Aplicación móvil Full-Stack para reportar averías en aulas de la **Universidad Politécnica de Aguascalientes**.
+> Aplicación móvil Full-Stack para reportar averías en aulas de **escuelas, colegios y universidades** (adaptable a cualquier institución).
 
 ![Stack](https://img.shields.io/badge/React_Native-Expo_SDK_54-blue?style=flat-square&logo=expo)
 ![Backend](https://img.shields.io/badge/Backend-Node.js_%26_Express-green?style=flat-square&logo=nodedotjs)
@@ -12,7 +12,7 @@
 
 ## 📌 Descripción
 
-Sistema que permite a **estudiantes y personal** de la UPA reportar fallas de infraestructura en edificios y aulas directamente desde su celular. Los administradores de mantenimiento visualizan, gestionan y actualizan el estado de cada reporte desde la misma app.
+Sistema que permite a **estudiantes y personal** de cualquier institución educativa reportar fallas de infraestructura en edificios y aulas directamente desde su celular. Los administradores de mantenimiento visualizan, gestionan y actualizan el estado de cada reporte desde la misma app.
 
 ---
 
@@ -189,7 +189,7 @@ Para poner este sistema en producción en un servidor o computadora central de l
 #### Opción A: Mediante Docker (Recomendado)
 El archivo `docker-compose.yml` ya está preconfigurado con políticas de reinicio automático (`restart: always`) y persistencia de datos mediante volúmenes. Para producción:
 1. **Seguridad Crítica**: Edita el archivo `docker-compose.yml` y cambia la contraseña por defecto de la base de datos (`MYSQL_ROOT_PASSWORD`) y del backend (`DB_PASSWORD`) a una contraseña segura.
-2. **IP Estática / Dominio**: Configura las variables `REACT_NATIVE_PACKAGER_HOSTNAME` y `EXPO_PUBLIC_API_URL` en `docker-compose.yml` con la IP fija del servidor en la red de la UPA (o un dominio dns local).
+2. **IP Estática / Dominio**: Configura las variables `REACT_NATIVE_PACKAGER_HOSTNAME` y `EXPO_PUBLIC_API_URL` en `docker-compose.yml` con la IP fija del servidor en la red de la institución (o un dominio dns local).
 3. **Ejecución en segundo plano permanente**:
    ```bash
    docker compose up --build -d
